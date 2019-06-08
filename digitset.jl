@@ -1,32 +1,3 @@
-module t
-
-#=
-Optimizations:
-
-Exact deduplication in linear time: Two numbers with same digit set are quickly deduplicated
-using a Dict
-
-Subset deduplication in quadratic time: For each number A, if another number B's set is a
-subset of A's, and B > A, then A is discarded. All-against-all lookup
-
-DigitSet: A set of digits can be efficiently represented with a 32-bit integer, and operations
-on the set done using fast bitwise operations
-
-type SmallSolution: If ≤64 numbers, a subset can be represented by a single UInt64.
-
-Sums of solutions are calculated as the solutions are being built to avoid repeating summing
-subsets that are shared between solutions
-
-Only the optimal solution is stored, and is overwritten.
-
-Caching set construction: Sets of all integers are constructed before recursion
-
-Remaining elements kept track of by an index into a container instead of using a copied container.
-
-Elements are sorted in reverse order before recursion to prune recursion tree as fast as possible
-
-=#
-
 const a = [984,981,976,950,899,890,887,885,880,800,798,790,777,767,750,701,
     697,688,680,678,650,599,589,567,550,501,9,8,7,6,5,4,3,2,1]
 const b = [1090,1080,1074,1065,1057,1056,1047,1041,1041,1038,1025,1013,1008,
@@ -50,31 +21,18 @@ function DigitSet(x::Integer)
     return set
 end
 
-function Base.iterate(x::DigitSet, n=0::Int)
-    while x.x >>> n & UInt32(1) == 0
-        if n == 10
-            return nothing
-        end
-        n += 1
-    end
-    return (n, n+1)
-end
-
 DigitSet() = DigitSet(zero(UInt32))
-Base.length(x::DigitSet) = count_ones(x.x)
 Base.push!(x::DigitSet, y::Integer) = DigitSet(x.x | (UInt32(1) << y))
 Base.union(x::DigitSet, y::DigitSet) = DigitSet(x.x | y.x)
-Base.intersect(x::DigitSet, y::DigitSet) = DigitSet(x.x & y.x)
 Base.hash(x::DigitSet, h::UInt) = hash(x.x, h)
-Base.isempty(x::DigitSet) = x.x == zero(UInt32)
-isdisjoint(x::DigitSet, y::DigitSet) = isempty(intersect(x, y))
+isdisjoint(x::DigitSet, y::DigitSet) = x.x & y.x == zero(UInt32)
 Base.issubset(x::DigitSet, y::DigitSet) = (x.x & ~y.x) == zero(UInt32)
 
 function linear_deduplicate(numbers)
     bydigits = Dict{DigitSet, eltype(numbers)}()
     for number in numbers
         set = DigitSet(number)
-        existing = get(bydigits, set, 0)
+        existing = get(bydigits, set, typemin(Int))
         if number > existing
             bydigits[set] = number
         end
@@ -168,11 +126,8 @@ function recurse(numbers)
     return sort!(collect(solution[], numbers))
 end
 
-# 24, 30
 function solve(numbers::Vector{Int})
     filtered = linear_deduplicate(numbers)
     filtered2 = square_deduplicate(filtered)
     return recurse(filtered2)
 end
-
-end # t
