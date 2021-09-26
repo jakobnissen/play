@@ -37,20 +37,20 @@ end
 
 struct ReverseGeneticCode <: AbstractDict{AminoAcid, CodonSet}
     name::String
-    sets::NTuple{N_AA, CodonSet}
+    sets::NTuple{N_AA-1, CodonSet}
 end
 
 function ReverseGeneticCode(x::BioSequences.GeneticCode)
     ind(aa::AminoAcid) = reinterpret(UInt8, aa) + 1
 
-    sets = fill(CodonSet(), N_AA)
+    sets = fill(CodonSet(), N_AA-1)
     for i in Int64(0):Int64(63)
         aa = x.tbl[i + 1]
         sets[ind(aa)] = push(sets[ind(aa)], reinterpret(RNACodon, i))
     end
 
     # Ambiguous amino acids
-    for (n, (a, b)) in [(AA_B, (AA_D, AA_E)), (AA_J, (AA_I, AA_L)), (AA_Z, (AA_E, AA_Q))]
+    for (n, (a, b)) in [(AA_B, (AA_D, AA_N)), (AA_J, (AA_I, AA_L)), (AA_Z, (AA_E, AA_Q))]
         sets[ind(n)] = sets[ind(a)] ∪ sets[ind(b)]
     end
 
@@ -80,8 +80,20 @@ function Base.getindex(s::ReverseGeneticCode, a::AminoAcid)
     @inbounds s.sets[reinterpret(UInt8, a) + 1]
 end
 
-function reverse_translate(seq::BioSequence{AminoAcidAlphabet}, code=rev_standard_genetic_code)
-    [code[aa] for aa in seq]
+function reverse_translate!(
+    v::Vector{CodonSet},
+    seq::AminoAcidSeq,
+    code=rev_standard_genetic_code
+)
+    resize!(v, length(seq))
+    @inbounds for i in eachindex(v)
+        v[i] = code[seq[i]]
+    end
+    v
+end
+
+function reverse_translate(seq::AminoAcidSeq, code=rev_standard_genetic_code)
+    reverse_translate!(Vector{CodonSet}(undef, length(seq)), seq, code)
 end
 
 end # module
